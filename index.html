@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mapa de Interpretaciones Musicales</title>
+    <title>Red de Interpretaciones Musicales</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
         :root { --accent: #2196f3; --bg: #f4f7f6; --panel: #ffffff; --danger: #f44336; }
@@ -34,19 +34,28 @@
         .instrucciones h4 { margin: 0 0 10px 0; font-size: 0.85em; color: #333; text-transform: uppercase; }
         .instrucciones p { margin: 5px 0; font-size: 0.8em; color: #666; line-height: 1.4; }
 
-        #info-cuadro { position: absolute; top: 20px; right: 20px; width: 320px; background: white; padding: 20px; border-radius: 12px; display: none; box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-top: 6px solid var(--accent); z-index: 100; }
+        #info-cuadro { position: absolute; top: 20px; right: 20px; width: 320px; background: white; padding: 20px; border-radius: 12px; display: none; box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-top: 6px solid var(--accent); z-index: 100; max-height: 85vh; overflow-y: auto; }
         .ficha-datos { font-size: 0.95em; line-height: 1.6; margin-bottom: 10px; }
         .ficha-datos b { color: #888; font-size: 0.75em; text-transform: uppercase; display: block; margin-top: 8px; }
         .yt-original { font-size: 0.8em; color: var(--accent); font-style: italic; margin-bottom: 10px; display: block; border-bottom: 1px solid #eee; padding-bottom: 5px;}
         
         .btn-delete { background: var(--danger); color: white; padding: 8px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 0.8em; opacity: 0.8; transition: 0.3s; }
         .btn-delete:hover { opacity: 1; }
+/* Animación para que el aviso aparezca suavemente */
+        #aviso-sin-fecha {
+            animation: aparecer 0.5s ease-out;
+        }
+
+        @keyframes aparecer {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
 
-    <div class="panel-control">
-        <div class="header-mapa">MAPA DE INTERPRETACIONES</div>
+ <div class="panel-control">
+        <div class="header-mapa">RED DE INTERPRETACIONES</div>
         
         <div id="nombreObraDisplay">Sin Título</div>
         <div id="compositorDisplay"></div>
@@ -59,10 +68,10 @@
             <button id="btn-generar" class="btn-main" onclick="procesarVideos()">Generar Grafo Interactivo</button>
         </div>
 
-        <div id="area-compartir" style="display:none;">
-            <button class="btn-main btn-share-colab" onclick="generarLink(true)">🔗 Link para Colaborador (Editable)</button>
-            <button class="btn-main btn-share-obs" onclick="generarLink(false)">👁️ Link para Observador (Solo Lectura)</button>
-            <p id="msg-share" style="font-size: 0.7em; color: #673ab7; margin-top: 10px; display: none; font-weight: bold;"></p>
+        <div id="seccion-vistas" style="margin-top: 15px;">
+            <button class="btn-main" style="background:#64ccb7;" onclick="activarVistaGeografica()">Visión Crono-Geográfica⏱️🌎</button>
+            <button class="btn-main" style="background:#ff9800; font-size: 0.8em;" onclick="reconstruirMapa()">🔄 Restaurar Red Libre</button>
+<button id="btn-fuerza" class="btn-main" style="background:#577280; font-size: 0.8em;" onclick="toggleFisica()">🔓 Modo Edición Manual (Fijar Nodos)</button>
         </div>
 
         <div class="instrucciones" id="guia-uso">
@@ -71,7 +80,8 @@
                 <p><strong>Paso 1:</strong> Elegí la obra a analizar, seleccioná el nodo central y cargá los datos.</p>
                 <p><strong>Paso 2:</strong> Subí los links de YouTube (máx. 100) y generá el grafo.</p>
                 <p><strong>Paso 3:</strong> Seleccioná los nodos y editá la información.</p>
-                <p><strong>Paso 4:</strong> ¡Compartí el grafo!</p>
+                <p><strong>Paso 4:</strong> Probá las diferentes funciones para organizar el grafo.</p>
+                <p><strong>Paso 5:</strong> ¡Compartí el link de tu proyecto o descargá la imagen! ✅</p>
             </div>
             <div id="invitacion-observador" style="display:none;">
                 <h4>¿Qué estás viendo?</h4>
@@ -81,6 +91,30 @@
                 <button class="btn-main" style="background:#2196f3; font-size:0.8em; margin-top:10px;" onclick="crearNuevo()">Crear mi propio grafo</button>
             </div>
         </div>
+<div id="seccion-filtros" style="margin-top: 15px; display:none;">
+            <label>Filtrar por Intérprete 🔎:</label>
+            <div id="lista-check-interpretes" style="margin-top: 8px; background:#f9f9f9; padding:10px; border-radius:8px; border:1px solid #eee; max-height:150px; overflow-y:auto; font-size:0.85em; margin-bottom:10px;">
+                </div>
+            
+            <label id="label-slider">Filtrar por línea de Tiempo: <span id="anio-slider-val">Presente</span></label>
+            <input type="range" id="time-slider" step="1" oninput="filtrarMapa()" style="width:100%; margin-top:5px;">
+<div style="display: flex; justify-content: space-between; color: #bbb; font-size: 0.75em; margin-top: -20px;">
+    <span id="anio-inicio-guia"></span>
+    <span id="anio-fin-guia"></span>
+</div>
+<p id="aviso-sin-fecha" style="display:none; font-size:0.75em; color:var(--danger); margin-top:5px; font-weight:bold;">
+    ⚠️ Hay nodos ocultos sin año definido.<br>
+    <span style="color:#666; font-weight:normal;">(Activá la función Red Libre para editarlos⬆️)</span>
+</p>
+        </div>
+
+        <div id="area-compartir" style="display:none; margin-top: 15px;">
+            <button class="btn-main btn-share-colab" onclick="generarLink(true)">🔗 Link para Colaborador (Editable)</button>
+            <button class="btn-main btn-share-obs" onclick="generarLink(false)">👁️ Link para Observador (Solo Lectura)</button>
+<button class="btn-main" style="background: #2e7d32; margin-top: 10px;" onclick="descargarGrafo()">📸 Descargar Imagen del Grafo</button>
+            <p id="msg-share" style="font-size: 0.7em; color: #673ab7; margin-top: 10px; display: none; font-weight: bold;"></p>
+        </div>
+    </div>
     </div>
 
     <div class="panel-grafo">
@@ -92,7 +126,7 @@
             
             <div id="form-edicion">
                 <label>Carga rápida (separar con puntos '.'):</label>
-                <input type="text" id="inputRapido" placeholder="Intérprete . Fecha . Lugar" oninput="autoRepartir()">
+                <input type="text" id="inputRapido" placeholder="Carga rápida..." oninput="autoRepartir()">
                 <div id="campos-dinamicos"></div>
                 <button class="btn-main" style="background:var(--accent);" onclick="guardarFicha()">Guardar Información</button>
                 <button id="btn-eliminar-nodo" class="btn-delete" onclick="eliminarNodoActivo()">Eliminar este nodo</button>
@@ -110,6 +144,15 @@
     let pdfUrlGlobal = null;
     let modoLectura = false;
     let grafoIniciado = false;
+
+    const REGIONES = {
+        "Europa": { min: 0, max: 60 },
+        "Asia/Oceanía": { min: 60, max: 120 },
+        "África": { min: 120, max: 180 },
+        "Sudamérica": { min: 180, max: 240 },
+        "Centroamérica": { min: 240, max: 300 },
+        "Norteamérica": { min: 300, max: 360 }
+    };
 
     window.onload = function() {
         const params = new URLSearchParams(window.location.search);
@@ -151,9 +194,24 @@
         const raw = document.getElementById('inputRapido').value;
         const partes = raw.split('.');
         const inputs = document.querySelectorAll('#campos-dinamicos input');
+        const selectRegion = document.getElementById('edit-region');
+
         if(partes[0] && inputs[0]) inputs[0].value = partes[0].trim();
         if(partes[1] && inputs[1]) inputs[1].value = partes[1].trim();
-        if(partes[2] && inputs[2]) inputs[2].value = partes[2].trim();
+        if(partes[2] && inputs[2]) {
+            let lugarCompuesto = partes[2].trim();
+            if(partes[3]) lugarCompuesto += ", " + partes[3].trim();
+            inputs[2].value = lugarCompuesto;
+        }
+        if(partes[4] && selectRegion) {
+            const buscado = partes[4].trim().toLowerCase();
+            for (let i = 0; i < selectRegion.options.length; i++) {
+                if (selectRegion.options[i].text.toLowerCase().includes(buscado)) {
+                    selectRegion.selectedIndex = i;
+                    break;
+                }
+            }
+        }
     }
 
     async function procesarVideos() {
@@ -178,22 +236,65 @@
         reconstruirMapa();
     }
 
-    function reconstruirMapa() {
+   function reconstruirMapa() {
+        network.setOptions({ 
+            physics: { 
+                enabled: true,
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: { gravitationalConstant: -50, springLength: 150 }
+            },
+            edges: { 
+                smooth: { enabled: true, type: 'dynamic' }, 
+                color: { color: '#cccccc', highlight: '#848484' } 
+            }
+        }); 
         nodes.clear();
         edges.clear();
         Object.keys(datosNodos).forEach(id => {
             const d = datosNodos[id];
             if (d.tipo === 'obra') {
-                nodes.add({ id: 0, label: "Partitura Original", shape: 'diamond', size: 35, color: '#000', font: { color: '#878787', face: 'Segoe UI', size: 14 } });
+                nodes.add({ id: 0, label: "Partitura Original", shape: 'circle', size: 35, color: '#000', font: { color: '#878787', face: 'Segoe UI', size: 14 } });
                 actualizarPanelIzquierdo(d);
             } else {
-                const hash = d.int ? d.int.split("").reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0) : 0;
-                nodes.add({ id: id, label: d.int || d.yt, shape: 'dot', size: 20, color: d.int ? `hsl(${Math.abs(hash)%360}, 65%, 55%)` : '#2196f3', font: { color: '#000000', size: 12 } });
+                // Lógica de colores muy contrastados
+                let colorFinal = '#2196f3'; // Azul por defecto
+                if (d.int) {
+                    // 1. Contamos cuántos intérpretes únicos hay en total
+                    const interpretesUnicos = [...new Set(Object.values(datosNodos)
+                        .filter(n => n.tipo === 'video' && n.int)
+                        .map(n => n.int))];
+                    
+                    const totalInterp = interpretesUnicos.length;
+                    const miIndice = interpretesUnicos.indexOf(d.int);
+                    
+                    // 2. Repartimos los 360 grados del arcoíris entre el total de intérpretes
+                    // Si hay 10, salta de 36 en 36 grados. Si hay 100, salta de 3.6 en 3.6.
+                    const hue = (miIndice * (360 / totalInterp)) % 360;
+                    
+                    // 3. Usamos colores bien vivos
+                    colorFinal = `hsl(${hue}, 85%, 45%)`;
+                }
+                
+                nodes.add({ 
+                    id: id, 
+                    label: d.int || d.yt, 
+                    shape: 'dot', 
+                    size: 20, 
+                    color: colorFinal, 
+                    font: { color: '#000000', size: 12 } 
+                });
                 edges.add({ from: 0, to: id });
             }
         });
         if(!modoLectura && (grafoIniciado || Object.keys(datosNodos).length > 1)) document.getElementById('area-compartir').style.display = 'block';
-    }
+actualizarFiltrosUI();
+const slider = document.getElementById('time-slider');
+// 1. Agregamos esta línea para atrapar el texto:
+    const labelSlider = document.getElementById('anio-slider-val');
+   if (slider) slider.value = slider.max;
+    // 2. Agregamos esta línea para cambiar el texto a "Todos":
+    if (labelSlider) labelSlider.innerText = "Todos"; 
+}
 
     function actualizarPanelIzquierdo(d) {
         document.getElementById('nombreObraDisplay').innerText = d.titulo;
@@ -208,18 +309,70 @@
         document.getElementById('info-cuadro').style.display = 'block';
         document.getElementById('info-yt-original').innerText = d.tipo === 'video' ? "YouTube: " + d.yt : "Partitura original";
         const campos = document.getElementById('campos-dinamicos');
-        document.getElementById('inputRapido').value = "";
+        
+        const pRapido = document.getElementById('inputRapido');
+        pRapido.value = "";
+        pRapido.placeholder = (d.tipo === 'obra') ? "Obra . Compositor . Año" : "Intérprete . Año . Ciudad . País . Región";
 
         document.getElementById('btn-eliminar-nodo').style.display = (d.tipo === 'video' && !modoLectura) ? 'block' : 'none';
 
         if(d.tipo === 'obra') {
-            campos.innerHTML = `<input type="text" id="edit-1" placeholder="Nombre Obra" value="${d.titulo}"><input type="text" id="edit-2" placeholder="Compositor" value="${d.comp}"><input type="text" id="edit-3" placeholder="Año" value="${d.anio}"><input type="text" id="edit-pdf" placeholder="URL Partitura" value="${pdfUrlGlobal || ''}">`;
+            campos.innerHTML = `<input type="text" id="edit-1" placeholder="Nombre Obra" value="${d.titulo}"><input type="text" id="edit-2" placeholder="Compositor" value="${d.comp}"><input type="text" id="edit-3" placeholder="Año Composición" value="${d.anio}"><input type="text" id="edit-pdf" placeholder="URL Partitura" value="${pdfUrlGlobal || ''}">`;
             document.getElementById('info-titulo').innerText = d.titulo;
-        } else {
-            campos.innerHTML = `<input type="text" id="edit-1" placeholder="Intérprete/s" value="${d.int || ''}"><input type="text" id="edit-2" placeholder="Fecha" value="${d.fecha || ''}"><input type="text" id="edit-3" placeholder="Lugar" value="${d.lugar || ''}">`;
+      } else {
+            let options = Object.keys(REGIONES).map(r => `<option value="${r}" ${d.region === r ? 'selected' : ''}>${r}</option>`).join('');
+            campos.innerHTML = `
+                <input type="text" id="edit-1" placeholder="Intérprete/s" value="${d.int || ''}">
+                <input type="text" id="edit-2" placeholder="Año (solo números, ej: 1985)" value="${d.fecha || ''}">
+                <input type="text" id="edit-3" placeholder="Ciudad, País (ej: Buenos Aires, Argentina)" value="${d.lugar || ''}">
+                <input type="text" id="edit-extra" placeholder="Link a Imagen, Texto o Drive" value="${d.linkExtra || ''}">
+                <label>Región Geográfica:</label>
+                <select id="edit-region" style="width:100%; padding:10px; border-radius:8px; margin-bottom:15px; border: 1px solid #ccc;">
+                    <option value="">Seleccionar región...</option>
+                    ${options}
+                </select>`;
             document.getElementById('info-titulo').innerText = d.int || d.yt;
         }
         actualizarVistaFicha(d);
+    }
+
+    function actualizarVistaFicha(d) {
+        const [disp, form, foot] = [document.getElementById('display-ficha'), document.getElementById('form-edicion'), document.getElementById('footer-ficha')];
+        if(d.guardado || modoLectura) {
+            form.style.display = 'none'; disp.style.display = 'block';
+            disp.innerHTML = d.tipo === 'obra' ? `<b>Obra:</b> ${d.titulo} <b>Compositor:</b> ${d.comp} <b>Año:</b> ${d.anio}` : `<b>Intérprete/s:</b> ${d.int} <b>Año:</b> ${d.fecha} <b>Lugar:</b> ${d.lugar}`;
+            if(!modoLectura) disp.innerHTML += `<button onclick="editarNuevamente()" style="display:block; margin-top:10px; color:blue; border:none; background:none; cursor:pointer; font-size:0.8em;">✏️ Editar ficha</button>`;
+            let botones = (d.tipo === 'video') ? `<button class="btn-main" style="background:#eee; color:#333; margin-top:10px;" onclick="window.open('${d.url}', '_blank')">Ver en YouTube ↗</button>` : "";
+            
+            if (d.linkExtra && d.linkExtra.trim() !== "") {
+                botones += `<button class="btn-main" style="background:#2196f3; color:white; margin-top:5px; font-size:0.8em;" onclick="window.open('${d.linkExtra}', '_blank')">📂 Ver Material Extra</button>`;
+            }
+            
+            foot.innerHTML = botones;
+        } else { 
+            form.style.display = 'block'; 
+            disp.style.display = 'none'; 
+            foot.innerHTML = ""; 
+        }
+    }
+
+    function guardarFicha() {
+        const d = datosNodos[idNodoActivo];
+        const v1 = document.getElementById('edit-1').value;
+        const v2 = document.getElementById('edit-2').value;
+        const v3 = document.getElementById('edit-3').value;
+        
+        if(d.tipo === 'obra') {
+            d.titulo = v1; d.comp = v2; d.anio = v3; pdfUrlGlobal = document.getElementById('edit-pdf').value;
+            actualizarPanelIzquierdo(d);
+        } else {
+            d.int = v1; d.fecha = v2; d.lugar = v3;
+            d.region = document.getElementById('edit-region').value;
+d.linkExtra = document.getElementById('edit-extra').value;
+        }
+       d.guardado = true;
+        reconstruirMapa(); // Esto ya llama internamente a actualizarFiltros y filtrarMapa
+        abrirFicha(idNodoActivo);
     }
 
     function eliminarNodoActivo() {
@@ -229,32 +382,6 @@
             document.getElementById('info-cuadro').style.display = 'none';
             reconstruirMapa();
         }
-    }
-
-    function actualizarVistaFicha(d) {
-        const [disp, form, foot] = [document.getElementById('display-ficha'), document.getElementById('form-edicion'), document.getElementById('footer-ficha')];
-        if(d.guardado || modoLectura) {
-            form.style.display = 'none'; disp.style.display = 'block';
-            disp.innerHTML = d.tipo === 'obra' ? `<b>Obra:</b> ${d.titulo} <b>Compositor:</b> ${d.comp} <b>Año:</b> ${d.anio}` : `<b>Intérprete:</b> ${d.int} <b>Fecha:</b> ${d.fecha} <b>Lugar:</b> ${d.lugar}`;
-            if(!modoLectura) disp.innerHTML += `<button onclick="editarNuevamente()" style="display:block; margin-top:10px; color:blue; border:none; background:none; cursor:pointer; font-size:0.8em;">✏️ Editar ficha</button>`;
-            foot.innerHTML = (d.tipo==='video') ? `<button class="btn-main" style="background:#eee; color:#333; margin-top:10px;" onclick="window.open('${d.url}', '_blank')">Ver en YouTube ↗</button>` : "";
-        } else { form.style.display = 'block'; disp.style.display = 'none'; foot.innerHTML = ""; }
-    }
-
-    function guardarFicha() {
-        const d = datosNodos[idNodoActivo];
-        const v1 = document.getElementById('edit-1').value;
-        const v2 = document.getElementById('edit-2').value;
-        const v3 = document.getElementById('edit-3').value;
-        if(d.tipo === 'obra') {
-            d.titulo = v1; d.comp = v2; d.anio = v3; pdfUrlGlobal = document.getElementById('edit-pdf').value;
-            actualizarPanelIzquierdo(d);
-        } else {
-            d.int = v1; d.fecha = v2; d.lugar = v3;
-        }
-        d.guardado = true;
-        reconstruirMapa();
-        abrirFicha(idNodoActivo);
     }
 
     function editarNuevamente() { datosNodos[idNodoActivo].guardado = false; actualizarVistaFicha(datosNodos[idNodoActivo]); }
@@ -271,8 +398,176 @@
         });
     }
 
-    function crearNuevo() {
-        window.location.href = window.location.origin + window.location.pathname;
+    function crearNuevo() { window.location.href = window.location.origin + window.location.pathname; }
+
+    function activarVistaGeografica() {
+        const obra = datosNodos[0];
+        const anioInicio = parseInt(obra.anio);
+        if (isNaN(anioInicio)) {
+            alert("Por favor, primero edita el nodo central y pon el año de composición de la obra.");
+            return;
+        }
+        
+        const hoy = new Date().getFullYear(); 
+        const radioMaximo = 600; 
+        
+        network.setOptions({ 
+            physics: { enabled: false },
+            edges: { smooth: { enabled: false } } 
+        });
+
+        const actualizaciones = [];
+        actualizaciones.push({ id: 0, x: 0, y: 0, shape: 'circle', color: '#000' });
+
+        Object.keys(datosNodos).forEach(id => {
+            const d = datosNodos[id];
+            if (d.tipo === 'video' && d.fecha && d.region) {
+                const rInfo = REGIONES[d.region];
+                const anioInterp = parseInt(d.fecha);
+                if (!isNaN(anioInterp)) {
+                    const progreso = (anioInterp - anioInicio) / (hoy - anioInicio);
+                    const radio = 100 + (progreso * radioMaximo);
+                    const margen = 8; 
+                    const anguloAzar = Math.random() * (rInfo.max - rInfo.min - (margen * 2)) + rInfo.min + margen;
+                    const radianes = (anguloAzar - 90) * (Math.PI / 180);
+                    actualizaciones.push({ id: id, x: radio * Math.cos(radianes), y: radio * Math.sin(radianes) });
+                }
+            }
+        });
+        nodes.update(actualizaciones);
+        setTimeout(() => network.fit({ animation: true }), 500);
+        
+        // Mantenemos los filtros activos
+        filtrarMapa();
+    }
+
+    let interpretesVisibles = new Set();
+
+    function actualizarFiltrosUI() {
+        const slider = document.getElementById('time-slider');
+        const lista = document.getElementById('lista-check-interpretes');
+        const seccion = document.getElementById('seccion-filtros');
+        
+        const hoy = new Date().getFullYear(); 
+        slider.max = hoy; 
+        
+        if (parseInt(slider.value) >= hoy - 1) {
+            slider.value = hoy;
+        }
+
+        const interpretes = [...new Set(Object.values(datosNodos)
+            .filter(n => n.tipo === 'video' && n.int)
+            .map(n => n.int))].sort();
+
+        if (interpretes.length > 0) {
+            seccion.style.display = 'block';
+            
+            interpretes.forEach(i => {
+                if (!interpretesVisibles.has(i)) interpretesVisibles.add(i);
+            });
+
+            const anioObra = parseInt(datosNodos[0].anio);
+            if (!isNaN(anioObra)) { 
+                slider.min = anioObra;
+                document.getElementById('anio-inicio-guia').innerText = anioObra; 
+            }
+
+            document.getElementById('anio-fin-guia').innerText = hoy; 
+
+            lista.innerHTML = interpretes.map(int => `
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                    <input type="checkbox" ${interpretesVisibles.has(int) ? 'checked' : ''} onchange="toggleInterprete('${int}')">
+                    <span>${int}</span>
+                </div>
+            `).join('');
+        } else {
+            seccion.style.display = 'none';
+        }
+    }
+
+    function toggleInterprete(nombre) {
+        if (interpretesVisibles.has(nombre)) interpretesVisibles.delete(nombre);
+        else interpretesVisibles.add(nombre);
+        filtrarMapa();
+    }
+
+    function filtrarMapa() {
+        const slider = document.getElementById('time-slider');
+        const anioLimite = parseInt(slider.value);
+        const anioMaximoSlider = parseInt(slider.max);
+
+        document.getElementById('anio-slider-val').innerText = (anioLimite === anioMaximoSlider) ? "Presente" : anioLimite;
+
+        const actualizaciones = [];
+        let hayNodosSinFechaOcultos = false;
+
+        Object.keys(datosNodos).forEach(id => {
+            const d = datosNodos[id];
+            if (d.tipo === 'obra') return;
+
+            const tieneFecha = d.fecha && d.fecha.toString().trim() !== "";
+            const cumpleInterp = interpretesVisibles.has(d.int);
+            let cumpleAnio = false;
+
+            if (anioLimite === anioMaximoSlider) {
+                cumpleAnio = true;
+            } else {
+                cumpleAnio = tieneFecha && parseInt(d.fecha) <= anioLimite;
+                if (!tieneFecha) hayNodosSinFechaOcultos = true;
+            }
+
+            actualizaciones.push({
+                id: id,
+                hidden: !(cumpleAnio && cumpleInterp)
+            });
+        });
+
+        nodes.update(actualizaciones);
+
+        const aviso = document.getElementById('aviso-sin-fecha');
+        if (aviso) aviso.style.display = hayNodosSinFechaOcultos ? 'block' : 'none';
+    }
+function descargarGrafo() {
+        const canvasOriginal = document.querySelector('canvas');
+        if (!canvasOriginal) return;
+
+        // 1. Creamos un canvas oculto temporal del mismo tamaño
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvasOriginal.width;
+        tempCanvas.height = canvasOriginal.height;
+        const ctx = tempCanvas.getContext('2d');
+
+        // 2. Pintamos el fondo de blanco en la copia
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        // 3. Dibujamos el grafo original encima del fondo blanco
+        ctx.drawImage(canvasOriginal, 0, 0);
+
+        // 4. Procedemos a la descarga con el canvas nuevo
+        const link = document.createElement('a');
+        const nombre = datosNodos[0].titulo || "Red_Interpretaciones";
+        link.download = `Mapa_${nombre.replace(/\s+/g, '_')}.png`;
+        link.href = tempCanvas.toDataURL("image/png");
+        link.click();
+    }
+let fisicaActiva = true; // Por defecto el grafo se mueve solo
+
+    function toggleFisica() {
+        fisicaActiva = !fisicaActiva; // Cambiamos el estado
+        const btn = document.getElementById('btn-fuerza');
+
+        if (fisicaActiva) {
+            // Activamos la física para que se acomoden solos
+            network.setOptions({ physics: { enabled: true } });
+            btn.innerText = "🔓 Modo Edición Manual (Fijar Nodos)";
+            btn.style.background = "#577280";
+        } else {
+            // Desactivamos la física para moverlos libremente
+            network.setOptions({ physics: { enabled: false } });
+            btn.innerText = "🔒 Modo Libre Activo (Nodos Fijos)";
+            btn.style.background = "#4caf50";
+        }
     }
 </script>
 </body>
