@@ -1,2 +1,2 @@
 # red-interpretaciones
-Herramienta pedagógica para el análisis y visualización de versiones musicales de una misma obra.
+A pedagogical tool for analyzing and visualizing different musical interpretations of the same work.
